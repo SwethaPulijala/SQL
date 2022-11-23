@@ -1,0 +1,116 @@
+1. select candidate_id from candidates where skills in ('python', 'tableau','postgresql') group by candidate_id having count(*) = 3;
+
+2.select distinct(part) from parts_assembly where finish_date is null;
+
+3.select * from laptop_view natural join mobile_view;
+
+4.create view traders_users_view as select * from traders natural join users;
+  select  count(*) as orders, city from traders_users_view where status = 'completed'group by city;
+
+5. create view companies_view as select count(*) duplicate_companies from job_listings group by company_id;
+    select * from companies_view where duplicate_companies>1;
+
+6. create view deposit_view as select * from trasactions where transaction_type = 'Deposit';
+   create view dv as select sum(amount) amount_deposited, account_id from deposit_view group by account_id;
+
+   create view withdrawal_view as select * from trasactions where transaction_type = 'withdrawal'
+   create view wv as  select sum(amount) amount_withdrawn, account_id from withdrawal_view group by account_id;
+   select (dv.amount_deposited -wv.amount_withdrawn) as amount_left from dv join wv on dv.account_id = wv.account_id;
+
+7 and 8 select * from tweets where year(tweet_date) >2021;
+  incomplete
+
+9. select pp.name as Power_creaters, pp.profile_id from personal_profiles pp left join company_pages cp on pp.employer_id = cp.company_id where(pp.followers-cp.followers) >0;
+
+10. select count(*) as prod_num, user_id from user_transactions group by user_id 
+
+12. create view datacenterview as select datacenter_id, sum(monthly_capacity) as served_capacity from datacenters group by datacenter_id;
+    create view forecasedview as  select datacenter_id, sum(monthly_demand) as forecasted_capacity from forecasted_demand group by datacenter_id;
+    select datacenterview.served_capacity-forecasedview.forecasted_capacity as unserved_capacity from datacenterview join forecasedview on forecasedview.datacenter_id = datacenterview.datacenter_id;
+
+13.  select user_id , datediff(max(post_date),min(post_date)) from posts group by user_id;
+
+14.  select distinct (sender_id), count(content) over (partition by sender_id) from messages where month(sent_date) = 08;
+
+15,16. select floor(count(p.payer_id)/2) as unique_relationshsips from (select payer_id , recipient_id from payments where payer_id in (select recipient_id from payments)) p ;
+
+17. alter table ad_campaigns add column ROAS float(2);
+     update ad_campaigns set ROAS = revenue/spend;
+     select * from ad_campaigns order by advertiser_id;
+
+18.  select merchant_id, sum(case when payment_method = 'Apple pay' then transaction_amount else 0 end) as 'Apple_sales' from transactions group by merchant_id;
+
+19. SELECT
+  app_id,
+  ROUND(100.0 *
+    SUM(CASE WHEN event_type = 'click' THEN 1 ELSE 0 END) /
+    SUM(CASE WHEN event_type = 'impression' THEN 1 ELSE 0 END), 2)  AS ctr_rate
+FROM events
+WHERE timestamp >= '2022-01-01' AND timestamp < '2023-01-01'
+GROUP BY app_id;
+
+20. SELECT e.user_id FROM emails e inner join texts t on t.email_id = e.email_id where  t.action_date = e.signup_date + interval '1 day' and signup_action = 'Confirmed' ;
+21. select * from (SELECT *, dense_rank() over (PARTITION BY user_id order by transaction_date ASC) from transactions) t where t.dense_rank = 3;
+
+22.with Avergae_salary_cal as (SELECT employee_id, salary, (avg(salary) over (PARTITION BY title))*2 as double_average, (avg(salary) over (partition by title))/2 as Half_the_avergae from employee_pay)
+
+select employee_id, salary, (case when salary> double_average then 'Overly Paid' 
+when salary<Half_the_avergae then 'underpaid'
+END) as Outliers
+from Avergae_salary_cal 
+where salary>double_average or salary<Half_the_avergae
+
+23. round(100.0 *
+sum(case when activity_type = 'send' then time_spent else 0 end)/
+(sum(case when activity_type = 'send' then time_spent else 0 end)+ sum(case when activity_type = 'open' then time_spent else 0 end)),2) as send_perc,
+round(100.0 *
+sum(case when activity_type = 'open' then time_spent else 0 end)/
+(sum(case when activity_type = 'send' then time_spent else 0 end)+ sum(case when activity_type = 'open' then time_spent else 0 end)),2) as open_perc
+
+from data group by age_bucket
+
+24. with tweet_count as (SELECT count(*) as tcount, user_id, tweet_date FROM tweets group by user_id, tweet_date)
+select user_id, tweet_date, 
+round(avg(tcount) 
+over (PARTITION BY user_id 
+order by user_id, tweet_date
+rows between 2 preceding and current row), 2) as rolling_avg from tweet_count
+
+25. with rows as (SELECT measurement_value, cast(measurement_time as DATE) as measurement_day, row_number()  over( PARTITION BY cast(measurement_time as DATE)  order by measurement_time) as measurement_num FROM measurements )
+select measurement_day, sum(case when measurement_num %2=0 then measurement_value else 0 end) as even_rows, 
+sum(case when measurement_num %2!=0 then measurement_value else 0 end) as odd_rows from rows group by measurement_day
+
+26. with commontable as (SELECT t.product_id,t.transaction_id, p.product_name  FROM transactions t inner join products p on t.product_id = p.product_id )
+select ct.product_name , ct1.product_name, count(*) as combo_num  from commontable as ct inner join 
+commontable as ct1 
+on ct.transaction_id = ct1.transaction_id 
+and ct.product_id < ct1.product_id group by ct.product_name, ct1.product_name order by combo_num;
+
+27.   with productspend as(select category, product, sum(spend) as total_spend from product_spend group by category, product),
+  productrank as (select *, rank() over (PARTITION BY category order by total_spend) as ranknum from productspend)
+ select category, product, total_spend from productrank where ranknum<3
+
+28. with userwisespend as (SELECT user_id,spend , rank() over (PARTITION BY user_id order by transaction_date) FROM user_transactions)
+select count(DISTINCT user_id) from userwisespend where spend>50 and rank = 1
+
+29. SELECT p.profile_id,p.name,cp.company_id, rank() over (PARTITION BY employer_id order by p.followers) as Emp_rank FROM 
+personal_profiles p left join company_pages cp 
+on p.employer_id = cp.company_id 
+where p.followers> cp.followers;
+
+30. with top_artists as (select artist_id, dense_rank() over (order by song_count desc) as artist_rank from ( 
+select s.artist_id,count(s.song_id) as song_count from global_song_rank g inner join songs s on g.song_id = s.song_id where g.rank<=10 group by s.artist_id) as top_songs)
+select a.artist_name , ta.artist_rank from top_artists ta inner join artists a on a.artist_id = ta.artist_id where ta.artist_rank<=5 order by ta.artist_rank , a.artist_name
+
+32. with active_accounts as (SELECT e.user_id, case when t.email_id is not null then 1 else 0 end as activated_accounts
+FROM emails e left join texts t on e.email_id = t.email_id and t.signup_action = 'Confirmed')
+
+select round(sum(activated_accounts)::decimal/count(user_id),2) as rate from active_accounts
+
+33. with category as (SELECT product_id, category, name, count(category) over (order by product_id) as category_number FROM products)
+select product_id, name, category_number, first_value(category) over (PARTITION BY category_number) from category
+
+34. with bench_days as (SELECT job_id,client_id, date_part('day',end_date::timestamp-start_date::timestamp) as nonbench_days FROM consulting_engagements)
+select s.employee_id, 365-sum(b.nonbench_days)-count(s.employee_id) from staffing s inner join bench_days b 
+on s.job_id = b.job_id where is_consultant = 'true'
+group by s.employee_id 
